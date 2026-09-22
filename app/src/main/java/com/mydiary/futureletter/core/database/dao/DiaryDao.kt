@@ -35,13 +35,13 @@ interface DiaryDao {
     @Query("SELECT date FROM diary_entries WHERE date >= :start AND date < :end")
     fun observeDatesInRange(start: Long, end: Long): Flow<List<Long>>
 
-    /** 全文搜索：标题 + 正文，按相关度倒序 */
+    /** 全文搜索：标题 + 正文 */
     @Query(
         """
         SELECT e.* FROM diary_entries e
         JOIN diary_entry_fts fts ON e.id = fts.rowid
         WHERE diary_entry_fts MATCH :query
-        ORDER BY rank
+        ORDER BY e.date DESC
         """
     )
     fun searchEntries(query: String): Flow<List<DiaryEntry>>
