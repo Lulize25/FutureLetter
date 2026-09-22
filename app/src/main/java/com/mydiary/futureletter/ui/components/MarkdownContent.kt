@@ -1,5 +1,6 @@
 package com.mydiary.futureletter.ui.components
 
+import android.content.Context
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -12,7 +13,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -22,7 +22,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -45,7 +44,7 @@ fun MarkdownContent(
     onLinkClick: (String) -> Unit = {}
 ) {
     val blocks = remember(markdown) { MarkdownParser.parse(markdown) }
-    val context = LocalContext.current
+    val context = LocalContextHolder.current
     Column(modifier = modifier) {
         blocks.forEach { block ->
             when (block) {
@@ -141,74 +140,82 @@ fun MarkdownContent(
     }
 }
 
+// 避免在多个 @Composable 参数里反复传 LocalContext.current
+private object LocalContextHolder {
+    val current: Context
+        @Composable
+        get() = androidx.compose.ui.platform.LocalContext.current
+}
+
+private sealed interface Segment {
+    data class Text(val text: AnnotatedString) : Segment
+    data class Image(val destination: String, val alt: String) : Segment
+}
+
 @Composable
 private fun MarkdownParts(
     parts: List<MdPart>,
     style: TextStyle,
-    context: android.content.Context,
+    context: Context,
     onLinkClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 先把连续的 Span 合并成一个 AnnotatedString，Image 单独渲染
-    var buffer = AnnotatedString.Builder()
-    val hasImage = parts.any { it is MdPart.Image }
-
-    fun flush() {
-        val built = buffer.toAnnotatedString()
-        if (built.isNotEmpty()) {
-            Text(text = built, style = style, modifier = modifier.padding(vertical = 2.dp))
+    // 预分组：连续 Span 合并成一个 AnnotatedString，Image 独立成段
+    val segments = remember(parts, style, onLinkClick) {
+        val result = mutableListOf<Segment>()
+        var spanBuffer = mutableListOf<MdPart.Span>()
+        fun flush() {
+            if (spanBuffer.isNotEmpty()) {
+                result.add(Segment.Text(buildAnnotatedString {
+                    appendSpans(spanBuffer, style, onLinkClick)
+                }))
+                spanBuffer = mutableListOf()
+            }
         }
-        buffer = AnnotatedString.Builder()
-    }
-
-    if (!hasImage) {
-        val annotated = buildAnnotatedString {
-            appendParts(parts, style, onLinkClick)
+        parts.forEach { p ->
+            when (p) {
+                is MdPart.Span -> spanBuffer.add(p)
+                is MdPart.Image -> {
+                    flush()
+                    result.add(Segment.Image(p.destination, p.alt))
+                }
+            }
         }
-        if (annotated.isNotEmpty()) {
-            Text(text = annotated, style = style, modifier = modifier.padding(vertical = 2.dp))
-        }
-        return
+        flush()
+        result
     }
 
     Column(modifier = modifier) {
-        parts.forEach { part ->
-            when (part) {
-                is MdPart.Image -> {
-                    val built = buffer.toAnnotatedString()
-                    if (built.isNotEmpty()) {
-                        Text(text = built, style = style, modifier = Modifier.padding(vertical = 2.dp))
-                        buffer = AnnotatedString.Builder()
-                    }
-                    val model = remember(part.destination) { resolveImageModel(context, part.destination) }
+        segments.forEach { seg ->
+            when (seg) {
+                is Segment.Text -> Text(
+                    text = seg.text,
+                    style = style,
+                    modifier = Modifier.padding(vertical = 2.dp)
+                )
+                is Segment.Image -> {
+                    val model = remember(seg.destination) { resolveImageModel(context, seg.destination) }
                     AsyncImage(
                         model = model,
-                        contentDescription = part.alt,
+                        contentDescription = seg.alt,
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(max = 360.dp)
                             .padding(vertical = 4.dp)
                     )
                 }
-                is MdPart.Span -> {
-                    buffer.appendParts(listOf(part), style, onLinkClick)
-                }
             }
-        }
-        val built = buffer.toAnnotatedString()
-        if (built.isNotEmpty()) {
-            Text(text = built, style = style, modifier = Modifier.padding(vertical = 2.dp))
         }
     }
 }
 
-private fun AnnotatedString.Builder.appendParts(
-    parts: List<MdPart>,
+private fun AnnotatedString.Builder.appendSpans(
+    spans: List<MdPart.Span>,
     baseStyle: TextStyle,
     onLinkClick: (String) -> Unit
 ) {
     val linkColor = androidx.compose.ui.graphics.Color(0xFF6B4F9E)
-    parts.filterIsInstance<MdPart.Span>().forEach { span ->
+    spans.forEach { span ->
         val spanStyle = SpanStyle(
             fontWeight = if (MdSpanStyle.BOLD in span.styles) FontWeight.Bold else baseStyle.fontWeight,
             fontStyle = if (MdSpanStyle.ITALIC in span.styles) FontStyle.Italic else baseStyle.fontStyle,
@@ -222,11 +229,12 @@ private fun AnnotatedString.Builder.appendParts(
             withLink(
                 LinkAnnotation.Url(
                     span.link,
-                    TextLinkStyles(style = spanStyle)
-                ) { link ->
-                    val url = (link as? LinkAnnotation.Url)?.url
-                    if (url != null) onLinkClick(url)
-                }
+                    TextLinkStyles(style = spanStyle),
+                    linkInteractionListener = { link ->
+                        val url = (link as? LinkAnnotation.Url)?.url
+                        if (url != null) onLinkClick(url)
+                    }
+                )
             ) {
                 withStyle(spanStyle) { append(span.text) }
             }
@@ -236,7 +244,7 @@ private fun AnnotatedString.Builder.appendParts(
     }
 }
 
-private fun resolveImageModel(context: android.content.Context, destination: String): Any {
+private fun resolveImageModel(context: Context, destination: String): Any {
     return when {
         destination.startsWith("images/") || destination.startsWith("files/") ->
             File(context.filesDir, destination)

@@ -49,8 +49,12 @@ sealed interface MdBlock {
     data class BulletItem(val marker: String, override val parts: List<MdPart>) : MdBlock
     data class OrderedItem(val number: Int, override val parts: List<MdPart>) : MdBlock
     data class Quote(override val parts: List<MdPart>) : MdBlock
-    data class Code(val text: String) : MdBlock
-    data class Table(val rows: List<String>) : MdBlock
+    data class Code(val text: String) : MdBlock {
+        override val parts: List<MdPart> get() = emptyList()
+    }
+    data class Table(val rows: List<String>) : MdBlock {
+        override val parts: List<MdPart> get() = emptyList()
+    }
     data object Divider : MdBlock {
         override val parts: List<MdPart> get() = emptyList()
     }
