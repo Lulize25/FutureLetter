@@ -67,6 +67,15 @@ class CalendarViewModel @Inject constructor(
         refreshMonthDots()
     }
 
+    /** 跳转到任意日期：切换月份并选中该日 */
+    fun jumpToDate(date: LocalDate) {
+        _uiState.value = _uiState.value.copy(
+            currentMonth = date.withDayOfMonth(1),
+            selectedDate = date
+        )
+        refreshMonthDots()
+    }
+
     private fun refreshMonthDots() {
         val month = _uiState.value.currentMonth
         val start = month.toMillis()

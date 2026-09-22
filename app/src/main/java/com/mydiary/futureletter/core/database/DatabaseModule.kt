@@ -20,4 +20,7 @@ object DatabaseModule {
 
     @Provides
     fun provideDiaryDao(db: AppDatabase) = db.diaryDao()
+
+    @Provides
+    fun provideLetterDao(db: AppDatabase) = db.letterDao()
 }

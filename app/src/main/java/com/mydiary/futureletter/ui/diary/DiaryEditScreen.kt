@@ -70,6 +70,7 @@ fun DiaryEditScreen(
 
     var previewMode by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
     var newTagInput by remember { mutableStateOf("") }
     var contentField by remember {
         mutableStateOf(TextFieldValue(state.content, TextRange(state.content.length)))
@@ -151,7 +152,21 @@ fun DiaryEditScreen(
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // 日记日期（可点击修改）
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(
+                    text = "📅 " + com.mydiary.futureletter.ui.components.formatChinese(state.date),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(onClick = { showDatePicker = true }) {
+                    Text("修改日期")
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
 
             // 标签行
             FlowRow(
@@ -238,6 +253,37 @@ fun DiaryEditScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+
+    if (showDatePicker) {
+        com.mydiary.futureletter.ui.components.DatePickDialog(
+            initial = state.date,
+            onConfirm = { viewModel.requestDateChange(it) },
+            onDismiss = { showDatePicker = false }
+        )
+    }
+
+    // 目标日期已有日记的确认框
+    if (state.pendingDateChange != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::cancelDateChange,
+            title = { Text("该日期已有日记") },
+            text = {
+                Text(
+                    "${com.mydiary.futureletter.ui.components.formatChinese(state.pendingDateChange!!)} " +
+                        "已有一篇《${state.conflictEntryTitle ?: ""}》。\n\n" +
+                        "确认后原日记将被删除，本篇日记移到该日期。"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = viewModel::confirmDateChange) {
+                    Text("覆盖", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::cancelDateChange) { Text("取消") }
+            }
+        )
     }
 
     if (showDeleteDialog) {

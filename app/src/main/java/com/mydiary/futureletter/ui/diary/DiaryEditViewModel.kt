@@ -23,7 +23,10 @@ data class DiaryEditUiState(
     val content: String = "",
     val tags: List<String> = emptyList(),
     val loaded: Boolean = false,
-    val isNew: Boolean = true
+    val isNew: Boolean = true,
+    /** 用户选了已有日记的日期：待确认 */
+    val pendingDateChange: LocalDate? = null,
+    val conflictEntryTitle: String? = null
 )
 
 @OptIn(FlowPreview::class)
@@ -86,6 +89,45 @@ class DiaryEditViewModel @Inject constructor(
 
     fun setTags(tagNames: List<String>) {
         _uiState.value = _uiState.value.copy(tags = tagNames.distinct())
+    }
+
+    /** 选择日期：若目标日期已有别的日记，先弹确认 */
+    fun requestDateChange(date: LocalDate) {
+        viewModelScope.launch {
+            val millis = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val existing = diaryRepository.getEntryByDate(millis)
+            if (existing != null && existing.id != _uiState.value.entryId) {
+                _uiState.value = _uiState.value.copy(
+                    pendingDateChange = date,
+                    conflictEntryTitle = existing.title.ifBlank { "（无标题）" }
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(date = date)
+            }
+        }
+    }
+
+    /** 确认覆盖目标日期的已有日记 */
+    fun confirmDateChange() {
+        val target = _uiState.value.pendingDateChange ?: return
+        viewModelScope.launch {
+            val millis = target.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            diaryRepository.getEntryByDate(millis)?.let {
+                if (it.id != _uiState.value.entryId) diaryRepository.deleteEntry(it.id)
+            }
+            _uiState.value = _uiState.value.copy(
+                date = target,
+                pendingDateChange = null,
+                conflictEntryTitle = null
+            )
+        }
+    }
+
+    fun cancelDateChange() {
+        _uiState.value = _uiState.value.copy(
+            pendingDateChange = null,
+            conflictEntryTitle = null
+        )
     }
 
     /** 页面退出时兜底保存 */
