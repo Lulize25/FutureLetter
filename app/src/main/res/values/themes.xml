@@ -1,0 +1,4 @@
+<resources>
+    <!-- Compose 应用无需 AppCompat/Material XML 主题，用平台主题即可 -->
+    <style name="Theme.FutureLetter" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

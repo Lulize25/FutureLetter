@@ -1,0 +1,43 @@
+name: Build APK
+
+# 推送代码或手动触发时构建
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 配置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: 配置 Gradle 8.9（无需 wrapper jar）
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+
+      - name: 配置 Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 安装 SDK 组件（Android 15 平台 + 构建工具）
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: 构建 Debug APK
+        run: gradle assembleDebug --stacktrace
+
+      - name: 上传 APK 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: 我的日记与未来信-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
