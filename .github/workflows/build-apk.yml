@@ -9,6 +9,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 明确授予创建 Issue 的权限（新仓库默认 token 为只读）
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: 拉取代码
         uses: actions/checkout@v4
