@@ -24,11 +24,11 @@ jobs:
         with:
           gradle-version: 8.9
 
-      - name: 配置 Android SDK
-        uses: android-actions/setup-android@v3
-
+      # ubuntu-latest 镜像自带 Android SDK，直接用 sdkmanager 装缺的组件
       - name: 安装 SDK 组件（Android 15 平台 + 构建工具）
         run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME/cmdline-tools/latest/bin/"
           yes | sdkmanager --licenses || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
