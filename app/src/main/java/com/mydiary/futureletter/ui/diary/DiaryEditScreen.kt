@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mydiary.futureletter.ui.components.MarkdownContent
+import com.mydiary.futureletter.ui.components.formatChinese
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -157,7 +158,7 @@ fun DiaryEditScreen(
             // 日记日期（可点击修改）
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text(
-                    text = "📅 " + com.mydiary.futureletter.ui.components.formatChinese(state.date),
+                    text = "📅 " + state.date.formatChinese(),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -270,7 +271,7 @@ fun DiaryEditScreen(
             title = { Text("该日期已有日记") },
             text = {
                 Text(
-                    "${com.mydiary.futureletter.ui.components.formatChinese(state.pendingDateChange!!)} " +
+                    "${state.pendingDateChange!!.formatChinese()} " +
                         "已有一篇《${state.conflictEntryTitle ?: ""}》。\n\n" +
                         "确认后原日记将被删除，本篇日记移到该日期。"
                 )
