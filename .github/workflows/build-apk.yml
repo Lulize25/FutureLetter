@@ -24,13 +24,14 @@ jobs:
         with:
           gradle-version: 8.9
 
-      # ubuntu-latest 镜像自带 Android SDK，直接用 sdkmanager 装缺的组件
+      # ubuntu-latest 镜像自带 Android SDK，直接用完整路径调用 sdkmanager
       - name: 安装 SDK 组件（Android 15 平台 + 构建工具）
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
-          ls "$ANDROID_HOME/cmdline-tools/latest/bin/"
-          yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          ls -la "$ANDROID_HOME/cmdline-tools/latest/bin/" || true
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
       - name: 构建 Debug APK
         run: gradle assembleDebug --stacktrace
