@@ -55,8 +55,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: '构建失败 @ ' + context.sha.slice(0, 7),
-              body: body,
-              labels: ['build-failure']
+              body: body
             });
 
       - name: 上传 APK 产物
