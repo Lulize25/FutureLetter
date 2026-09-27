@@ -4,10 +4,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,42 +13,44 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.RemoveRedEye
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mydiary.futureletter.ui.components.DatePickDialog
 import com.mydiary.futureletter.ui.components.MarkdownContent
 import com.mydiary.futureletter.ui.components.formatChinese
 import kotlinx.coroutines.Dispatchers
@@ -59,7 +59,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiaryEditScreen(
     onBack: () -> Unit,
@@ -71,8 +71,8 @@ fun DiaryEditScreen(
 
     var previewMode by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showUnsavedDialog by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
-    var newTagInput by remember { mutableStateOf("") }
     var contentField by remember {
         mutableStateOf(TextFieldValue(state.content, TextRange(state.content.length)))
     }
@@ -84,9 +84,9 @@ fun DiaryEditScreen(
         }
     }
 
-    // 退出页面时兜底保存
-    DisposableEffect(Unit) {
-        onDispose { viewModel.saveOnExit() }
+    // 返回：有未保存修改时先确认
+    fun goBack() {
+        if (state.dirty) showUnsavedDialog = true else onBack()
     }
 
     // 系统照片选择器（无需存储权限），选图后复制到私有目录并插入 Markdown
@@ -115,14 +115,18 @@ fun DiaryEditScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        viewModel.saveOnExit()
-                        onBack()
-                    }) {
+                    IconButton(onClick = { goBack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
+                    // 显式保存（确定键）
+                    TextButton(
+                        onClick = { viewModel.saveNow(onBack) },
+                        enabled = state.dirty
+                    ) {
+                        Text("保存")
+                    }
                     IconButton(onClick = { previewMode = !previewMode }) {
                         Icon(
                             if (previewMode) Icons.Default.VisibilityOff else Icons.Default.RemoveRedEye,
@@ -156,7 +160,7 @@ fun DiaryEditScreen(
             Spacer(modifier = Modifier.height(6.dp))
 
             // 日记日期（可点击修改）
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "📅 " + state.date.formatChinese(),
                     style = MaterialTheme.typography.bodyMedium,
@@ -164,41 +168,6 @@ fun DiaryEditScreen(
                 )
                 TextButton(onClick = { showDatePicker = true }) {
                     Text("修改日期")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // 标签行
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                state.tags.forEach { tag ->
-                    AssistChip(
-                        onClick = { viewModel.setTags(state.tags - tag) },
-                        label = { Text("$tag ✕") }
-                    )
-                }
-                // 添加标签输入
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = newTagInput,
-                        onValueChange = { newTagInput = it },
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        placeholder = { Text("添加标签") },
-                        singleLine = true,
-                        trailingIcon = {
-                            if (newTagInput.isNotBlank()) {
-                                IconButton(onClick = {
-                                    viewModel.setTags(state.tags + newTagInput.trim())
-                                    newTagInput = ""
-                                }) {
-                                    Icon(Icons.Default.Add, contentDescription = "添加标签")
-                                }
-                            }
-                        }
-                    )
                 }
             }
 
@@ -210,7 +179,7 @@ fun DiaryEditScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {
-                // Markdown 正文编辑
+                // Markdown 正文编辑：带底色区域 + 醒目光标，清楚看到光标位置
                 BasicTextField(
                     value = contentField,
                     onValueChange = {
@@ -219,10 +188,16 @@ fun DiaryEditScreen(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(320.dp),
+                        .height(340.dp)
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                            RoundedCornerShape(12.dp)
+                        )
+                        .padding(12.dp),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                         color = MaterialTheme.colorScheme.onSurface
                     ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     decorationBox = { inner ->
                         if (contentField.text.isEmpty()) {
                             Text(
@@ -238,7 +213,7 @@ fun DiaryEditScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // 插入图片按钮
-                androidx.compose.material3.OutlinedButton(
+                OutlinedButton(
                     onClick = {
                         photoPicker.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -257,10 +232,31 @@ fun DiaryEditScreen(
     }
 
     if (showDatePicker) {
-        com.mydiary.futureletter.ui.components.DatePickDialog(
+        DatePickDialog(
             initial = state.date,
             onConfirm = { viewModel.requestDateChange(it) },
             onDismiss = { showDatePicker = false }
+        )
+    }
+
+    // 有未保存修改时的确认框
+    if (showUnsavedDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnsavedDialog = false },
+            title = { Text("有未保存的修改") },
+            text = { Text("这篇日记还没保存，退出将丢失修改。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showUnsavedDialog = false
+                    viewModel.saveNow(onBack)
+                }) { Text("保存并退出") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showUnsavedDialog = false
+                    onBack()
+                }) { Text("不保存退出", color = MaterialTheme.colorScheme.error) }
+            }
         )
     }
 

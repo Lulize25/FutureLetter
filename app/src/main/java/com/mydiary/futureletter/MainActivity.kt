@@ -12,7 +12,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EditNote
-import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
@@ -33,7 +32,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.mydiary.futureletter.ui.calendar.CalendarScreen
 import com.mydiary.futureletter.ui.diary.DiaryEditScreen
-import com.mydiary.futureletter.ui.letters.LetterListScreen
 import com.mydiary.futureletter.ui.search.SearchScreen
 import com.mydiary.futureletter.ui.settings.SettingsScreen
 import com.mydiary.futureletter.ui.theme.FutureLetterTheme
@@ -41,17 +39,12 @@ import dagger.hilt.android.AndroidEntryPoint
 
 object Routes {
     const val CALENDAR = "calendar"
-    const val LETTERS = "letters"
     const val SEARCH = "search"
     const val SETTINGS = "settings"
     const val DIARY_EDIT = "diary_edit?entryId={entryId}&date={dateMillis}"
-    const val LETTER_EDIT = "letter_edit?letterId={letterId}"
 
     fun diaryEdit(entryId: Long? = null, dateMillis: Long? = null): String =
         "diary_edit?entryId=${entryId ?: ""}&date=${dateMillis ?: ""}"
-
-    fun letterEdit(letterId: Long? = null): String =
-        "letter_edit?letterId=${letterId ?: ""}"
 }
 
 @AndroidEntryPoint
@@ -74,7 +67,7 @@ fun AppRoot() {
     val currentRoute = backStackEntry?.destination?.route
     val context = LocalContext.current
 
-    // 首次启动申请通知权限（未来信解锁提醒需要）
+    // 首次启动申请通知权限
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { }
@@ -88,7 +81,7 @@ fun AppRoot() {
     }
 
     // 编辑页全屏显示，不带底部导航
-    val showBottomBar = currentRoute != Routes.DIARY_EDIT && currentRoute != Routes.LETTER_EDIT
+    val showBottomBar = currentRoute != Routes.DIARY_EDIT
 
     Scaffold(
         bottomBar = {
@@ -99,12 +92,6 @@ fun AppRoot() {
                         onClick = { navController.navigateTopLevel(Routes.CALENDAR) },
                         icon = { Icon(Icons.Default.EditNote, contentDescription = "日记") },
                         label = { Text("日记") }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Routes.LETTERS,
-                        onClick = { navController.navigateTopLevel(Routes.LETTERS) },
-                        icon = { Icon(Icons.Default.MailOutline, contentDescription = "未来信") },
-                        label = { Text("未来信") }
                     )
                     NavigationBarItem(
                         selected = currentRoute == Routes.SEARCH,
@@ -150,27 +137,6 @@ fun AppRoot() {
                 )
             ) {
                 DiaryEditScreen(onBack = { navController.popBackStack() })
-            }
-            composable(Routes.LETTERS) {
-                LetterListScreen(
-                    onOpenEditor = { letterId ->
-                        navController.navigate(Routes.letterEdit(letterId))
-                    }
-                )
-            }
-            composable(
-                route = Routes.LETTER_EDIT,
-                arguments = listOf(
-                    androidx.navigation.navArgument("letterId") {
-                        type = androidx.navigation.NavType.StringType
-                        nullable = true
-                        defaultValue = null
-                    }
-                )
-            ) {
-                com.mydiary.futureletter.ui.letters.LetterEditScreen(
-                    onBack = { navController.popBackStack() }
-                )
             }
             composable(Routes.SEARCH) {
                 SearchScreen(
