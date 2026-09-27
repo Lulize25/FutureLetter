@@ -6,11 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.mydiary.futureletter.core.database.entity.FutureLetter
 import com.mydiary.futureletter.data.repository.LetterRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import javax.inject.Inject
@@ -21,10 +18,11 @@ data class LetterEditUiState(
     val content: String = "",
     val unlockAt: LocalDateTime = LocalDateTime.now().plusDays(30),
     val isNew: Boolean = true,
-    val loaded: Boolean = false
+    val loaded: Boolean = false,
+    /** 是否有未保存的修改 */
+    val dirty: Boolean = false
 )
 
-@OptIn(FlowPreview::class)
 @HiltViewModel
 class LetterEditViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -36,10 +34,15 @@ class LetterEditViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(LetterEditUiState())
     val uiState: StateFlow<LetterEditUiState> = _uiState
 
+    // 加载时的快照，用于判断是否有修改
+    private var snapshotTitle: String = ""
+    private var snapshotContent: String = ""
+    private var snapshotUnlockAt: LocalDateTime? = null
+
     init {
         viewModelScope.launch {
             val letter = navLetterId?.let { letterRepository.getLetter(it) }
-            _uiState.value = LetterEditUiState(
+            val state = LetterEditUiState(
                 letterId = letter?.id,
                 title = letter?.title ?: "",
                 content = letter?.contentMd ?: "",
@@ -50,30 +53,46 @@ class LetterEditViewModel @Inject constructor(
                 isNew = letter == null,
                 loaded = true
             )
-            // 输入停顿 1.5 秒后自动保存（保存 = 入库 + 重新调度解锁任务）
-            _uiState
-                .debounce { 1500L }
-                .drop(1)
-                .collect { state -> if (state.loaded) saveInternal(state) }
+            takeSnapshot(state)
+            _uiState.value = state
         }
     }
 
-    fun updateTitle(title: String) {
-        _uiState.value = _uiState.value.copy(title = title)
+    private fun takeSnapshot(state: LetterEditUiState) {
+        snapshotTitle = state.title
+        snapshotContent = state.content
+        snapshotUnlockAt = state.unlockAt
     }
 
-    fun updateContent(content: String) {
-        _uiState.value = _uiState.value.copy(content = content)
+    private fun computeDirty(s: LetterEditUiState): Boolean =
+        s.loaded && (s.title != snapshotTitle ||
+            s.content != snapshotContent ||
+            s.unlockAt != snapshotUnlockAt)
+
+    private fun currentStateWithDirty(update: LetterEditUiState.() -> LetterEditUiState) {
+        val s = _uiState.value.update()
+        _uiState.value = s.copy(dirty = computeDirty(s))
     }
 
-    fun updateUnlockAt(unlockAt: LocalDateTime) {
-        _uiState.value = _uiState.value.copy(unlockAt = unlockAt)
-    }
+    fun updateTitle(title: String) = currentStateWithDirty { copy(title = title) }
 
-    fun saveOnExit() {
+    fun updateContent(content: String) = currentStateWithDirty { copy(content = content) }
+
+    fun updateUnlockAt(unlockAt: LocalDateTime) = currentStateWithDirty { copy(unlockAt = unlockAt) }
+
+    /** 显式保存（确定键） */
+    fun saveNow(onSaved: () -> Unit) {
         val state = _uiState.value
-        if (state.loaded) {
-            viewModelScope.launch { saveInternal(state) }
+        if (!state.loaded) {
+            onSaved()
+            return
+        }
+        viewModelScope.launch {
+            saveInternal(state)
+            // 保存成功（或内容为空未落库）后刷新快照
+            takeSnapshot(_uiState.value)
+            _uiState.value = _uiState.value.copy(dirty = computeDirty(_uiState.value))
+            onSaved()
         }
     }
 

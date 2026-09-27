@@ -56,6 +56,7 @@ fun LetterEditScreen(
 
     var previewMode by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showUnsavedDialog by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
     var contentField by remember {
@@ -68,8 +69,9 @@ fun LetterEditScreen(
         }
     }
 
-    DisposableEffect(Unit) {
-        onDispose { viewModel.saveOnExit() }
+    // 返回：有未保存修改时先确认
+    fun goBack() {
+        if (state.dirty) showUnsavedDialog = true else onBack()
     }
 
     Scaffold(
@@ -77,14 +79,18 @@ fun LetterEditScreen(
             TopAppBar(
                 title = { Text(if (state.isNew) "写一封未来信" else "编辑未来信") },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        viewModel.saveOnExit()
-                        onBack()
-                    }) {
+                    IconButton(onClick = { goBack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
+                    // 显式保存（确定键）
+                    TextButton(
+                        onClick = { viewModel.saveNow(onBack) },
+                        enabled = state.dirty
+                    ) {
+                        Text("保存")
+                    }
                     IconButton(onClick = { previewMode = !previewMode }) {
                         Icon(
                             if (previewMode) Icons.Default.VisibilityOff else Icons.Default.RemoveRedEye,
@@ -195,6 +201,27 @@ fun LetterEditScreen(
             onDismiss = { showTimePicker = false }
         )
     }
+    // 有未保存修改时的确认框
+    if (showUnsavedDialog) {
+        AlertDialog(
+            onDismissRequest = { showUnsavedDialog = false },
+            title = { Text("有未保存的修改") },
+            text = { Text("这封信还没保存，退出将丢失修改。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showUnsavedDialog = false
+                    viewModel.saveNow(onBack)
+                }) { Text("保存并退出") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showUnsavedDialog = false
+                    onBack()
+                }) { Text("不保存退出", color = MaterialTheme.colorScheme.error) }
+            }
+        )
+    }
+
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },

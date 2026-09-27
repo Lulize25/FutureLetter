@@ -29,9 +29,14 @@ class FutureLetterApp : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        // 启动兜底：已到解锁时间但还没解锁的信，补解锁 + 补发通知
+        // 启动兜底：
+        // 1. 已到解锁时间但还没解锁的信，补解锁 + 补发通知
+        // 2. 重新登记所有未解锁信的定时任务（系统强杀后任务可能丢失）
         appScope.launch {
-            runCatching { letterRepository.sweepDueLetters() }
+            runCatching {
+                letterRepository.sweepDueLetters()
+                letterRepository.rescheduleAllPending()
+            }
         }
     }
 }

@@ -53,4 +53,15 @@ class LetterRepository @Inject constructor(
         }
         return due.size
     }
+
+    /**
+     * 重新校准所有未解锁信的定时任务。
+     * 荣耀/MagicOS 等系统强杀应用会取消 WorkManager 任务，应用下次启动时补登记。
+     */
+    suspend fun rescheduleAllPending() {
+        val now = System.currentTimeMillis()
+        letterDao.getAllLetters()
+            .filter { !it.isUnlocked && it.unlockAt > now }
+            .forEach { LetterScheduler.schedule(context, it) }
+    }
 }
