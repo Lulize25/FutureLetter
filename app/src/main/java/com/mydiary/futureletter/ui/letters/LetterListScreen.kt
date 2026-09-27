@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -24,12 +26,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mydiary.futureletter.core.alarm.LetterAlarmScheduler
 import com.mydiary.futureletter.core.database.entity.FutureLetter
 import com.mydiary.futureletter.ui.components.MarkdownContent
 
@@ -40,6 +45,9 @@ fun LetterListScreen(
     viewModel: LetterListViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    // 精确闹钟权限状态（页面每次重组时重新检查）
+    val exactAlarmGranted = remember { LetterAlarmScheduler.canScheduleExact(context) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("未来信") }) },
@@ -49,7 +57,56 @@ fun LetterListScreen(
             }
         }
     ) { padding ->
-        if (state.letters.isEmpty()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            // 精确闹钟权限引导：不授予的话系统可能延迟解锁
+            if (!exactAlarmGranted) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        androidx.compose.foundation.layout.Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.NotificationsActive,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                            Spacer(modifier = Modifier.padding(4.dp))
+                            Text(
+                                "开启精确闹钟，确保信件准点解锁",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "没有该权限时，系统可能在休眠时延迟几分钟才解锁。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Button(onClick = {
+                            val intent = android.content.Intent(
+                                android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                android.net.Uri.parse("package:${context.packageName}")
+                            )
+                            context.startActivity(intent)
+                        }) {
+                            Text("去开启")
+                        }
+                    }
+                }
+            }
+
+            if (state.letters.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()

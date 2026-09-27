@@ -4,7 +4,7 @@ import android.content.Context
 import com.mydiary.futureletter.core.database.dao.LetterDao
 import com.mydiary.futureletter.core.database.entity.FutureLetter
 import com.mydiary.futureletter.core.notification.NotificationHelper
-import com.mydiary.futureletter.core.work.LetterScheduler
+import com.mydiary.futureletter.core.alarm.LetterAlarmScheduler
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -27,18 +27,21 @@ class LetterRepository @Inject constructor(
         val id = letterDao.upsertLetter(letter)
         val saved = letterDao.getLetter(id) ?: return id
         if (!saved.isUnlocked && saved.unlockAt > System.currentTimeMillis()) {
-            LetterScheduler.schedule(context, saved)
+            LetterAlarmScheduler.schedule(context, saved)
         }
         return id
     }
 
     /** 删除并取消对应的调度任务 */
     suspend fun deleteLetter(id: Long) {
-        LetterScheduler.cancel(context, id)
+        LetterAlarmScheduler.cancel(context, id)
         letterDao.deleteLetter(id)
     }
 
     suspend fun markUnlocked(id: Long) = letterDao.markUnlocked(id)
+
+    /** 发解锁通知（闹钟接收器与 Worker 共用） */
+    fun notifyUnlocked(letter: FutureLetter) = notificationHelper.showLetterUnlocked(letter)
 
     /**
      * 启动兜底扫描：已到时间但还没解锁的信，补解锁 + 补发通知。
@@ -62,6 +65,6 @@ class LetterRepository @Inject constructor(
         val now = System.currentTimeMillis()
         letterDao.getAllLetters()
             .filter { !it.isUnlocked && it.unlockAt > now }
-            .forEach { LetterScheduler.schedule(context, it) }
+            .forEach { LetterAlarmScheduler.schedule(context, it) }
     }
 }
