@@ -8,16 +8,15 @@
 - **日历**：月视图按日期打点，一眼看到哪天写了日记；支持📅跳转到任意日期
 - **搜索**：全文搜索日记标题与正文
 - **备份与恢复**：支持导出为 JSON（单文件，图片内嵌）或 ZIP（含原图），可随时导入还原
-- **隐私**：零权限、零账号、零服务器
+- **指纹锁**：开启后，打开应用或从后台返回时需指纹/锁屏密码验证
+- **隐私**：零联网权限、零账号、零服务器
 
 ## 下载安装
 
-本仓库通过 GitHub Actions 云端构建，无需本地 Android 环境：
+- **Releases 页**：在 [Releases](https://github.com/Lulize25/FutureLetter/releases) 下载最新版 `app-release.apk`，传到手机安装即可；
+- **Actions 构建**：打开 [Actions](https://github.com/Lulize25/FutureLetter/actions) 页面 → 最新成功构建 → Artifacts 下载「日记-release」解压。
 
-1. 打开仓库的 [Actions](https://github.com/Lulize25/FutureLetter/actions) 页面；
-2. 点进最新一次成功的构建（绿色✓）；
-3. 页面底部的 **Artifacts** 中下载「日记-release」；
-4. 解压 zip 得到 `app-release.apk`，传到手机上安装即可。
+每次推送代码后 CI 会自动构建并更新 Release。
 
 ## 技术栈
 

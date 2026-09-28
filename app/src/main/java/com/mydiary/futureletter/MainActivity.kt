@@ -1,9 +1,9 @@
 package com.mydiary.futureletter
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.fragment.app.FragmentActivity
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EditNote
@@ -24,6 +24,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.mydiary.futureletter.ui.calendar.CalendarScreen
 import com.mydiary.futureletter.ui.diary.DiaryEditScreen
+import com.mydiary.futureletter.ui.lock.AppLockGate
 import com.mydiary.futureletter.ui.search.SearchScreen
 import com.mydiary.futureletter.ui.settings.SettingsScreen
 import com.mydiary.futureletter.ui.theme.FutureLetterTheme
@@ -40,13 +41,15 @@ object Routes {
 }
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             FutureLetterTheme {
-                AppRoot()
+                AppLockGate {
+                    AppRoot()
+                }
             }
         }
     }
