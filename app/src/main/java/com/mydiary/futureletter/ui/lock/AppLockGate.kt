@@ -47,7 +47,7 @@ fun AppLockGate(
 ) {
     val viewModel: LockViewModel = hiltViewModel()
     // null = 设置尚未加载完成，此时显示占位页，避免日记内容在锁屏判定前闪现
-    val lockEnabled by viewModel.lockEnabled.collectAsStateWithLifecycle()
+    val lockEnabled by viewModel.lockEnabled.collectAsStateWithLifecycle(initialValue = null)
     var authenticated by rememberSaveable { mutableStateOf(false) }
     var promptShown by rememberSaveable { mutableStateOf(false) }
 
