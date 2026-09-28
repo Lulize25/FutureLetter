@@ -54,7 +54,15 @@ jobs:
             const lines = log.split('\n');
             const tail = lines.slice(-150).join('\n');
             const errors = lines.filter(l => l.startsWith('e:') || l.includes('error:')).join('\n');
-            const body = '## 构建日志（末尾 150 行）\n```\n' + tail + '\n```\n\n## 错误行\n```\n' + errors + '\n```';
+            // 提取 Gradle 的 “What went wrong” 段落
+            let what = '';
+            const idx = log.indexOf('What went wrong');
+            if (idx >= 0) {
+              const part = log.slice(idx, idx + 3000);
+              what = part.split('\n\n')[0];
+            }
+            const caused = lines.filter(l => l.trim().startsWith('Caused by') || l.includes('> Task') && l.includes('FAILED')).join('\n');
+            const body = '## What went wrong\n```\n' + what + '\n```\n\n## Caused by / 失败任务\n```\n' + caused + '\n```\n\n## 构建日志（末尾 150 行）\n```\n' + tail + '\n```\n\n## 错误行\n```\n' + errors + '\n```';
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
