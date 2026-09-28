@@ -10,4 +10,4 @@
 local.properties
 app/release
 *.jks
-*.keystore
+# release.keystore 需要随仓库提交（CI 签名用），*.jks 以外的密钥库保持忽略即可

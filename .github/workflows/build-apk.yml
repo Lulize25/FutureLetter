@@ -37,9 +37,9 @@ jobs:
           yes | "$SDKMANAGER" --licenses || true
           "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
 
-      - name: 构建 Debug APK
+      - name: 构建 Release APK
         run: |
-          if ! gradle assembleDebug --stacktrace > build.log 2>&1; then
+          if ! gradle assembleRelease --stacktrace > build.log 2>&1; then
             exit 1
           fi
 
@@ -65,6 +65,6 @@ jobs:
       - name: 上传 APK 产物
         uses: actions/upload-artifact@v4
         with:
-          name: 我的日记与未来信-debug
-          path: app/build/outputs/apk/debug/*.apk
+          name: 日记-release
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
