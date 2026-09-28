@@ -10,5 +10,6 @@ import kotlinx.coroutines.flow.Flow
 class LockViewModel @Inject constructor(
     settingsRepository: SettingsRepository
 ) : ViewModel() {
-    val lockEnabled: Flow<Boolean> = settingsRepository.lockEnabled
+    /** 锁开关状态；null 表示设置尚未加载完成 */
+    val lockEnabled: Flow<Boolean?> = settingsRepository.lockEnabled
 }

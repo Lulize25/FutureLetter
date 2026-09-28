@@ -46,7 +46,8 @@ fun AppLockGate(
     content: @Composable () -> Unit
 ) {
     val viewModel: LockViewModel = hiltViewModel()
-    val lockEnabled by viewModel.lockEnabled.collectAsStateWithLifecycle(initialValue = false)
+    // null = 设置尚未加载完成，此时显示占位页，避免日记内容在锁屏判定前闪现
+    val lockEnabled by viewModel.lockEnabled.collectAsStateWithLifecycle()
     var authenticated by rememberSaveable { mutableStateOf(false) }
     var promptShown by rememberSaveable { mutableStateOf(false) }
 
@@ -63,40 +64,44 @@ fun AppLockGate(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(lockEnabled) {
-        if (!lockEnabled) authenticated = true
-    }
+    when {
+        // 设置加载中：空白占位
+        lockEnabled == null -> Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.surface
+        ) {}
 
-    if (lockEnabled && !authenticated) {
-        val context = LocalContext.current
-        val activity = context as? FragmentActivity
+        // 已开启且未验证：锁屏 + 直接弹出系统认证（无需点按钮确认）
+        lockEnabled == true && !authenticated -> {
+            val context = LocalContext.current
+            val activity = context as? FragmentActivity
 
-        // 每次进入锁定状态时自动弹出系统认证
-        LaunchedEffect(Unit) {
-            if (!promptShown && activity != null) {
-                promptShown = true
-                BiometricGate.authenticate(
-                    activity = activity,
-                    onSuccess = { authenticated = true },
-                    onError = { } // 用户取消：留在锁屏界面，可点按钮重试
-                )
-            }
-        }
-
-        LockScreen(
-            canAuthenticate = activity != null && BiometricGate.canAuthenticate(context),
-            onUnlock = {
-                if (activity != null) {
+            LaunchedEffect(Unit) {
+                if (!promptShown && activity != null) {
+                    promptShown = true
                     BiometricGate.authenticate(
                         activity = activity,
                         onSuccess = { authenticated = true },
-                        onError = { }
+                        onError = { } // 用户取消：留在锁屏界面，可点按钮重试
                     )
                 }
             }
-        )
-    } else {
-        content()
+
+            LockScreen(
+                canAuthenticate = activity != null && BiometricGate.canAuthenticate(context),
+                onUnlock = {
+                    if (activity != null) {
+                        BiometricGate.authenticate(
+                            activity = activity,
+                            onSuccess = { authenticated = true },
+                            onError = { }
+                        )
+                    }
+                }
+            )
+        }
+
+        else -> content()
     }
 }
 

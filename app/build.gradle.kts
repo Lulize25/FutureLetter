@@ -14,7 +14,7 @@ android {
         applicationId = "com.mydiary.futureletter"
         minSdk = 34
         targetSdk = 35
-        versionCode = 2
+        versionCode = 3
         versionName = "1.1.0"
     }
 
